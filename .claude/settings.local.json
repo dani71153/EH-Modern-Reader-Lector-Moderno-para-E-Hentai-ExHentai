@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l *.html *.js manifest.json)",
+      "Bash(perl -ne 'while \\(/\\([^\\\\x00-\\\\x7F][^\\\\x00-\\\\x7F]+\\)/g\\) { print \"$1\\\\n\" }' content.js)",
+      "Bash(perl -ne 'while \\(/\\([^\\\\x00-\\\\x7F][^\\\\x00-\\\\x7F]+\\)/g\\) { print \"$1\\\\n\" }' gallery.js)",
+      "Bash(perl -ne 'while \\(/\\([^\\\\x00-\\\\x7F][^\\\\x00-\\\\x7F]+\\)/g\\) { print \"$1\\\\n\" }' nhentai.js hitomi.js)",
+      "Bash(perl -ne 'while \\(/\\([^\\\\x00-\\\\x7F][^\\\\x00-\\\\x7F]+\\)/g\\) { print \"$1\\\\n\" }' welcome.html)",
+      "Bash(ls -lh /c/Users/danie/Downloads/EH-Modern-Reader-main/EH-Modern-Reader-main/*.js /c/Users/danie/Downloads/EH-Modern-Reader-main/EH-Modern-Reader-main/*.json)"
+    ]
+  }
+}

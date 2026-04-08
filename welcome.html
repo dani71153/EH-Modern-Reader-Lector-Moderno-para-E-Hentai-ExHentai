@@ -1,0 +1,499 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bienvenido a EH Modern Reader</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      background: white;
+      border-radius: 20px;
+      padding: 24px 32px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      animation: slideIn 0.4s ease-out;
+      display: flex;
+      flex-direction: column;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+
+    .logo {
+      font-size: 48px;
+      animation: float 3s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    .header-text {
+      flex: 1;
+    }
+
+    h1 {
+      font-size: 28px;
+      color: #333;
+      margin: 0 0 6px 0;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #999;
+      font-weight: 500;
+      margin: 0;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin: 0 0 20px 0;
+    }
+
+    .feature {
+      padding: 14px;
+      background: #f8f9fa;
+      border-radius: 10px;
+      border-left: 3px solid #667eea;
+      transition: all 0.3s ease;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .feature:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(102, 126, 234, 0.1);
+      background: #f0f3ff;
+    }
+
+    .feature-icon {
+      font-size: 28px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .feature-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .feature h3 {
+      font-size: 16px;
+      color: #333;
+      margin: 0 0 4px 0;
+      font-weight: 600;
+    }
+
+    .feature p {
+      font-size: 13px;
+      color: #666;
+      line-height: 1.4;
+      margin: 0;
+    }
+
+    .shortcuts {
+      background: transparent;
+      border-radius: 0;
+      padding: 12px 0;
+      margin: 0;
+      border: none;
+      border-top: 2px solid #f0f0f0;
+    }
+
+    .shortcuts h2 {
+      font-size: 14px;
+      color: #333;
+      margin: 0;
+      font-weight: 600;
+      display: none;
+    }
+
+    .shortcuts-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      color: #667eea;
+      padding: 8px 0;
+      user-select: none;
+    }
+
+    .shortcuts-toggle:hover {
+      color: #764ba2;
+    }
+
+    .toggle-icon {
+      display: inline-block;
+      transition: transform 0.3s ease;
+      font-size: 16px;
+    }
+
+    .toggle-icon.collapsed {
+      transform: rotate(-90deg);
+    }
+
+    .shortcut-list {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+      max-height: 1000px;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .shortcut-list.collapsed {
+      max-height: 0;
+      margin-top: 0;
+      gap: 0;
+    }
+
+    .shortcut-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #555;
+    }
+
+    .key {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-weight: 600;
+      font-size: 11px;
+      min-width: 40px;
+      text-align: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
+    }
+
+    .cta {
+      text-align: center;
+      margin-top: 20px;
+      margin-bottom: 0;
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 14px 28px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      text-decoration: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn.secondary {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+    }
+
+    .btn.secondary:hover {
+      box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6);
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 2px solid #f0f0f0;
+      font-size: 12px;
+      color: #999;
+      line-height: 1.6;
+    }
+
+    .footer p {
+      margin: 2px 0;
+    }
+
+    .footer a {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+
+    .version-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 3px 10px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 6px;
+    }
+
+    /* 响应式优化 */
+    @media (max-width: 1024px) {
+      .features {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .shortcut-list {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 16px 20px;
+      }
+
+      .header {
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .logo {
+        font-size: 40px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      .features {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .feature {
+        padding: 12px;
+      }
+
+      .shortcut-list {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .btn {
+        width: 100%;
+      }
+
+      .cta {
+        gap: 8px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+
+      h1 {
+        font-size: 20px;
+      }
+
+      .logo {
+        font-size: 36px;
+      }
+
+      .features {
+        grid-template-columns: 1fr;
+      }
+
+      .shortcut-list {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">📚</div>
+      <div class="header-text">
+        <h1>EH Modern Reader</h1>
+        <p class="subtitle">Lector moderno multi-sitio (E-Hentai / ExHentai / nhentai / hitomi) <span class="version-badge">v2.5.1</span></p>
+      </div>
+    </div>
+
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">🚀</div>
+        <div class="feature-content">
+          <h3>Soporte doble modo</h3>
+          <p>MPV automático + Gallery inicio manual</p>
+        </div>
+      </div>
+
+      <div class="feature">
+        <div class="feature-icon">🎨</div>
+        <div class="feature-content">
+          <h3>Lectura fluida</h3>
+          <p>Múltiples modos, clic por zonas, precarga</p>
+        </div>
+      </div>
+
+      <div class="feature">
+        <div class="feature-icon">🛡️</div>
+        <div class="feature-content">
+          <h3>Límite de velocidad seguro</h3>
+          <p>Limitación inteligente, evita bloqueos de IP</p>
+        </div>
+      </div>
+
+      <div class="feature">
+        <div class="feature-icon">💾</div>
+        <div class="feature-content">
+          <h3>Progreso permanente</h3>
+          <p>Guarda el progreso entre pestañas y sesiones</p>
+        </div>
+      </div>
+
+      <div class="feature">
+        <div class="feature-icon">🖼️</div>
+        <div class="feature-content">
+          <h3>Miniaturas perfectas</h3>
+          <p>Alineación centrada, carga diferida por lotes</p>
+        </div>
+      </div>
+
+      <div class="feature">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-content">
+          <h3>Caché y rendimiento</h3>
+          <p>URLs persistentes 24h + caché de sesión</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="shortcuts">
+      <div class="shortcuts-toggle" onclick="this.nextElementSibling.classList.toggle('collapsed'); this.querySelector('.toggle-icon').classList.toggle('collapsed');">
+        <span class="toggle-icon">▼</span>
+        <span>⌨️ Atajos de teclado</span>
+      </div>
+      <div class="shortcut-list">
+        <div class="shortcut-item">
+          <span class="key">← / →</span>
+          <span>Cambiar página</span>
+        </div>
+        <div class="shortcut-item">
+          <span class="key">A / D</span>
+          <span>Cambiar página</span>
+        </div>
+        <div class="shortcut-item">
+          <span class="key">Home</span>
+          <span>Primera página</span>
+        </div>
+        <div class="shortcut-item">
+          <span class="key">End</span>
+          <span>Última página</span>
+        </div>
+        <div class="shortcut-item">
+          <span class="key">H / S</span>
+          <span>Cambiar modo</span>
+        </div>
+        <div class="shortcut-item">
+          <span class="key">P</span>
+          <span>Reproducción automática</span>
+        </div>
+        <div class="shortcut-item">
+          <span class="key">R</span>
+          <span>Lectura inversa</span>
+        </div>
+        <div class="shortcut-item">
+          <span class="key">F11</span>
+          <span>Pantalla completa</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="cta">
+      <a href="https://github.com/MeiYongAI/EH-Modern-Reader" class="btn" target="_blank">
+        🔗 Ver proyecto en GitHub
+      </a>
+      <a href="https://e-hentai.org/" class="btn secondary" target="_blank">
+        📖 Sitio principal (e-hentai.org)
+      </a>
+      <a href="https://exhentai.org/" class="btn secondary" target="_blank">
+        🔒 Sitio alternativo (exhentai.org)
+      </a>
+      <a href="https://nhentai.net/" class="btn secondary" target="_blank">
+        🌐 nhentai.net
+      </a>
+      <a href="https://nhentai.xxx/" class="btn secondary" target="_blank">
+        🪞 nhentai.xxx
+      </a>
+      <a href="https://hitomi.la/" class="btn secondary" target="_blank">
+        🧭 hitomi.la
+      </a>
+    </div>
+
+    <div class="footer">
+      <p><strong>Modo MPV</strong>: se activa automáticamente en páginas /mpv/ | <strong>Modo Gallery</strong>: haz clic en el botón en la página de galería</p>
+      <p>Made with ❤️ by MeiYongAI · <a href="https://github.com/jiangtian616/JHenTai" target="_blank" rel="noreferrer">Agradecimientos a JHenTai</a></p>
+      <p style="margin-top:6px;font-size:11px;opacity:0.7;">Traducción por PajerodeFuego usando Claude, para la comunidad.</p>
+    </div>
+  </div>
+</body>
+</html>
