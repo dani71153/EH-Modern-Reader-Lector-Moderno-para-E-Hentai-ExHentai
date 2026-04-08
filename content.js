@@ -29,6 +29,42 @@
     }
   }
 
+  // ============================================================
+  // FIX #1: LRU Cache para imageCache
+  // Problema: Map crece indefinidamente (memory leak en galerías largas).
+  // Solución: LRUCache con capacidad máxima de 100 entradas; evicta la
+  // entrada menos usada recientemente cuando se supera el límite.
+  // ============================================================
+  class LRUCache {
+    constructor(maxSize = 100) {
+      this._maxSize = maxSize;
+      this._map = new Map(); // Map mantiene orden de inserción → usamos eso como orden LRU
+    }
+    get(key) {
+      if (!this._map.has(key)) return undefined;
+      const val = this._map.get(key);
+      // Mover al final = "más recientemente usado"
+      this._map.delete(key);
+      this._map.set(key, val);
+      return val;
+    }
+    set(key, value) {
+      if (this._map.has(key)) this._map.delete(key);
+      this._map.set(key, value);
+      // Evictar la entrada más antigua si se supera la capacidad
+      if (this._map.size > this._maxSize) {
+        const oldest = this._map.keys().next().value;
+        this._map.delete(oldest);
+        debugLog('[LRU] Evictando entrada', oldest, '- tamaño máximo alcanzado');
+      }
+    }
+    has(key) { return this._map.has(key); }
+    delete(key) { return this._map.delete(key); }
+    forEach(cb) { this._map.forEach(cb); }
+    get size() { return this._map.size; }
+    clear() { this._map.clear(); }
+  }
+
   // Bloquear excepciones del script MPV del sitio original (p.ej. ehg_mpv.c.js accede a nodos eliminados tras nuestra toma de control)
   // Optimización: registrar lo antes posible para estar antes que el script del sitio
   try {
@@ -238,6 +274,20 @@
             <span id="eh-page-info" title="Atajos de teclado: ← → Cambiar página | + - Zoom | 0 Restablecer | Espacio Página siguiente">1 / ${pageData.pagecount}</span>
           </div>
           <div class="eh-header-right">
+            <!-- FIX #4: Botón de marcadores -->
+            <button id="eh-bookmark-btn" class="eh-icon-btn" title="Marcadores (guardar / ver historial)">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+              </svg>
+            </button>
+            <!-- FIX #5: Botón de descarga ZIP -->
+            <button id="eh-download-btn" class="eh-icon-btn" title="Descargar galería como ZIP">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </button>
             <button id="eh-reverse-btn" class="eh-icon-btn" title="Lectura inversa (cambiar dirección izquierda/derecha)">
               <span style="font-size: 20px; font-weight: bold;">⇄</span>
             </button>
@@ -454,6 +504,35 @@
             </div>
           </div>
         </div>
+
+        <!-- FIX #4: Panel de marcadores -->
+        <div id="eh-bookmarks-panel" style="display:none; position:fixed; top:0; right:0; width:320px; height:100%; background:var(--eh-panel-bg, #1a1a2e); color:var(--eh-text,#fff); z-index:10010; box-shadow:-4px 0 20px rgba(0,0,0,0.5); overflow-y:auto; flex-direction:column;">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:16px; border-bottom:1px solid rgba(255,255,255,0.1);">
+            <h3 style="margin:0; font-size:16px;">Marcadores</h3>
+            <button id="eh-bookmarks-close" style="background:none; border:none; color:inherit; cursor:pointer; padding:4px; display:flex; align-items:center;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div style="padding:12px; border-bottom:1px solid rgba(255,255,255,0.1);">
+            <button id="eh-bookmark-add" style="width:100%; padding:8px 12px; background:#FF6B9D; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px; display:flex; align-items:center; gap:8px; justify-content:center;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+              Guardar galería actual
+            </button>
+          </div>
+          <div id="eh-bookmarks-list" style="padding:8px; flex:1;"></div>
+        </div>
+
+        <!-- FIX #5: Overlay de progreso de descarga ZIP -->
+        <div id="eh-download-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:10020; align-items:center; justify-content:center; flex-direction:column; gap:16px;">
+          <div style="background:#1a1a2e; border-radius:12px; padding:28px 36px; min-width:280px; text-align:center; color:#fff;">
+            <div style="font-size:16px; margin-bottom:12px;">Descargando galería...</div>
+            <div id="eh-download-progress-text" style="font-size:13px; color:#aaa; margin-bottom:12px;">0 / 0 imágenes</div>
+            <div style="background:rgba(255,255,255,0.1); border-radius:4px; height:8px; overflow:hidden;">
+              <div id="eh-download-progress-bar" style="height:100%; width:0%; background:#FF6B9D; transition:width 0.3s;"></div>
+            </div>
+            <button id="eh-download-cancel" style="margin-top:16px; background:none; border:1px solid rgba(255,255,255,0.2); color:#fff; border-radius:6px; padding:6px 16px; cursor:pointer;">Cancelar</button>
+          </div>
+        </div>
       </div>
     `;
 
@@ -493,6 +572,119 @@
       };
     }
   }
+
+  // ============================================================
+  // FIX #4: BookmarkManager - Sistema de marcadores con localStorage
+  // Problema: no había forma de guardar ni ver el historial de galerías.
+  // Solución: almacenar lista de marcadores en localStorage; panel lateral
+  // accesible desde el botón ★ en la barra superior.
+  // ============================================================
+  const BookmarkManager = {
+    STORAGE_KEY: 'eh_bookmarks_v1',
+    MAX_BOOKMARKS: 50,
+
+    load() {
+      try {
+        return JSON.parse(localStorage.getItem(this.STORAGE_KEY) || '[]');
+      } catch { return []; }
+    },
+
+    save(list) {
+      try { localStorage.setItem(this.STORAGE_KEY, JSON.stringify(list)); } catch {}
+    },
+
+    add(gallery) {
+      // gallery = { id, title, url, page, pageCount, thumb, savedAt }
+      const list = this.load().filter(b => b.id !== gallery.id); // deduplicar
+      list.unshift(gallery); // más reciente primero
+      if (list.length > this.MAX_BOOKMARKS) list.length = this.MAX_BOOKMARKS;
+      this.save(list);
+      return list;
+    },
+
+    remove(id) {
+      const list = this.load().filter(b => b.id !== id);
+      this.save(list);
+      return list;
+    },
+
+    has(id) {
+      return this.load().some(b => b.id === id);
+    },
+
+    renderPanel(panelEl, galleryId) {
+      const listEl = panelEl.querySelector('#eh-bookmarks-list');
+      if (!listEl) return;
+      const bookmarks = this.load();
+
+      // Limpiar contenido y cualquier handler previo
+      listEl.innerHTML = '';
+
+      if (bookmarks.length === 0) {
+        const empty = document.createElement('div');
+        empty.style.cssText = 'text-align:center; color:#888; padding:24px; font-size:13px;';
+        empty.textContent = 'No hay marcadores guardados.';
+        listEl.appendChild(empty);
+        return;
+      }
+
+      // Crear elementos programáticamente para evitar problemas de CSS/pointer-events
+      // que ocurren al usar innerHTML + addEventListener.
+      bookmarks.forEach(b => {
+        // Contenedor de entrada
+        const entry = document.createElement('div');
+        entry.style.cssText = 'display:flex; gap:8px; padding:8px; border-radius:6px; margin-bottom:4px; background:rgba(255,255,255,0.05); cursor:pointer; align-items:flex-start;';
+
+        // Texto (título + subtítulo)
+        const info = document.createElement('div');
+        info.style.cssText = 'flex:1; min-width:0;';
+
+        const title = document.createElement('div');
+        title.style.cssText = 'font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;';
+        title.title = b.title;
+        title.textContent = b.title;
+
+        const sub = document.createElement('div');
+        sub.style.cssText = 'font-size:11px; color:#888; margin-top:2px;';
+        sub.textContent = `Pág. ${b.page} / ${b.pageCount} · ${new Date(b.savedAt).toLocaleDateString()}`;
+
+        info.appendChild(title);
+        info.appendChild(sub);
+
+        // Botón eliminar — onclick directo sobre la referencia, no hay intermediarios
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.title = 'Eliminar marcador';
+        delBtn.textContent = '✕';
+        delBtn.style.cssText = 'background:none; border:none; color:#ff6b6b; cursor:pointer; padding:2px 6px; flex-shrink:0; font-size:14px;';
+        delBtn.onclick = (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          BookmarkManager.remove(b.id);
+          BookmarkManager.renderPanel(panelEl, galleryId);
+          BookmarkManager.updateBookmarkBtnState(galleryId);
+        };
+
+        // Navegación — solo si el clic NO fue en el botón eliminar
+        entry.onclick = (e) => {
+          if (e.target === delBtn) return;
+          window.location.assign(b.url);
+        };
+
+        entry.appendChild(info);
+        entry.appendChild(delBtn);
+        listEl.appendChild(entry);
+      });
+    },
+
+    updateBookmarkBtnState(galleryId) {
+      const btn = document.getElementById('eh-bookmark-btn');
+      if (!btn) return;
+      const saved = this.has(galleryId);
+      btn.style.color = saved ? '#FF6B9D' : '';
+      btn.title = saved ? 'Quitar marcador de esta galería' : 'Marcadores (guardar / ver historial)';
+    }
+  };
 
   /**
    * Inicializar funcionalidad del lector
@@ -586,7 +778,7 @@
       imagelist: pageData.imagelist,
       imageSizes: pageData.imageSizes || [], // Dimensiones de imágenes extraídas del DOM original
       galleryId: galleryId,
-      imageCache: new Map(),
+      imageCache: new LRUCache(100), // FIX #1: LRU con límite de 100 entradas
       imageRequests: new Map(),
       thumbnailObserver: null,
     draggingProgress: false,
@@ -1852,6 +2044,10 @@
 
       // 🎯 Si ya está en caché, usar directamente la imagen en caché, sin animación de carga
       if (targetLoaded) {
+        // FIX #2: Verificar race condition también en el fast path (caché).
+        // Sin este check, navegar rápido puede mostrar brevemente una imagen obsoleta.
+        if (typeof tokenCheck === 'number' && tokenCheck !== loadToken) return;
+
         const img = cachedTarget.img;
         if (elements.currentImage) {
           elements.currentImage.src = img.src;
@@ -3514,6 +3710,258 @@
       });
     }
 
+    // --------------------------------------------------------
+    // FIX #4: Lógica del panel de marcadores
+    // --------------------------------------------------------
+    {
+      const bookmarksPanel = document.getElementById('eh-bookmarks-panel');
+      const bookmarkBtn    = document.getElementById('eh-bookmark-btn');
+      const bookmarksClose = document.getElementById('eh-bookmarks-close');
+      const bookmarkAdd    = document.getElementById('eh-bookmark-add');
+
+      const openPanel = () => {
+        if (!bookmarksPanel) return;
+        // pointer-events: auto garantiza que ningún CSS padre lo bloquee
+        bookmarksPanel.style.cssText += '; display: flex !important; pointer-events: auto !important;';
+        BookmarkManager.renderPanel(bookmarksPanel, state.galleryId);
+      };
+      const closePanel = () => {
+        if (bookmarksPanel) bookmarksPanel.style.display = 'none';
+      };
+
+      if (bookmarkBtn) {
+        // Inicializar estado del icono
+        BookmarkManager.updateBookmarkBtnState(state.galleryId);
+        bookmarkBtn.addEventListener('click', openPanel);
+      }
+      if (bookmarksClose) {
+        bookmarksClose.addEventListener('click', closePanel);
+      }
+      if (bookmarkAdd) {
+        bookmarkAdd.addEventListener('click', () => {
+          const gallery = {
+            id: state.galleryId,
+            title: pageData.title || document.title || 'Sin título',
+            url: pageData.gallery_url || window.location.href,
+            page: state.currentPage,
+            pageCount: state.pageCount,
+            savedAt: Date.now()
+          };
+          BookmarkManager.add(gallery);
+          BookmarkManager.renderPanel(bookmarksPanel, state.galleryId);
+          BookmarkManager.updateBookmarkBtnState(state.galleryId);
+        });
+      }
+    }
+
+    // --------------------------------------------------------
+    // FIX #5: Lógica de descarga ZIP
+    // --------------------------------------------------------
+    {
+      const downloadBtn     = document.getElementById('eh-download-btn');
+      const downloadOverlay = document.getElementById('eh-download-overlay');
+      const downloadBar     = document.getElementById('eh-download-progress-bar');
+      const downloadText    = document.getElementById('eh-download-progress-text');
+      const downloadCancel  = document.getElementById('eh-download-cancel');
+      let downloadAborted   = false;
+
+      // Mínimo ZIP builder (STORE, sin compresión) — sin dependencias externas
+      function buildZip(files) {
+        // files: Array de { name: string, data: Uint8Array }
+        const localHeaders = [];
+        const centralDir   = [];
+        let offset = 0;
+
+        const enc = (s) => new TextEncoder().encode(s);
+        const u16 = (n) => { const b = new Uint8Array(2); new DataView(b.buffer).setUint16(0, n, true); return b; };
+        const u32 = (n) => { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, n, true); return b; };
+
+        // CRC-32 table
+        const crcTable = new Uint32Array(256);
+        for (let i = 0; i < 256; i++) {
+          let c = i;
+          for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+          crcTable[i] = c;
+        }
+        function crc32(data) {
+          let crc = 0xFFFFFFFF;
+          for (let i = 0; i < data.length; i++) crc = crcTable[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8);
+          return (crc ^ 0xFFFFFFFF) >>> 0;
+        }
+
+        for (const { name, data } of files) {
+          const nameBytes = enc(name);
+          const crc  = crc32(data);
+          const size = data.length;
+
+          const localHeader = concat([
+            new Uint8Array([0x50,0x4B,0x03,0x04]), // Local file header sig
+            u16(20),        // version needed
+            u16(0),         // general purpose bit flag
+            u16(0),         // compression: STORE
+            u16(0), u16(0), // mod time/date
+            u32(crc),       // crc-32
+            u32(size),      // compressed size
+            u32(size),      // uncompressed size
+            u16(nameBytes.length),
+            u16(0),         // extra field length
+            nameBytes,
+            data
+          ]);
+          localHeaders.push(localHeader);
+
+          centralDir.push(concat([
+            new Uint8Array([0x50,0x4B,0x01,0x02]), // Central dir sig
+            u16(20), u16(20),  // version made by / needed
+            u16(0),            // flags
+            u16(0),            // compression
+            u16(0), u16(0),    // mod time/date
+            u32(crc),
+            u32(size), u32(size),
+            u16(nameBytes.length),
+            u16(0), u16(0),    // extra/comment length
+            u16(0),            // disk number start
+            u16(0),            // int file attrs
+            u32(0),            // ext file attrs
+            u32(offset),       // relative offset
+            nameBytes
+          ]));
+          offset += localHeader.length;
+        }
+
+        const centralDirData = concat(centralDir);
+        const eocd = concat([
+          new Uint8Array([0x50,0x4B,0x05,0x06]),
+          u16(0), u16(0),
+          u16(files.length), u16(files.length),
+          u32(centralDirData.length),
+          u32(offset),
+          u16(0)
+        ]);
+
+        return concat([...localHeaders, centralDirData, eocd]);
+      }
+
+      function concat(arrays) {
+        const total = arrays.reduce((s, a) => s + a.length, 0);
+        const out = new Uint8Array(total);
+        let pos = 0;
+        for (const a of arrays) { out.set(a, pos); pos += a.length; }
+        return out;
+      }
+
+      // Wrapper: pide la imagen al background service worker que no tiene
+      // restricciones CORS. Devuelve Uint8Array + mimeType, o null si falla.
+      function fetchImageViaBackground(url) {
+        return new Promise((resolve) => {
+          try {
+            chrome.runtime.sendMessage(
+              { action: 'fetchImageBase64', url },
+              (resp) => {
+                if (chrome.runtime.lastError || !resp || !resp.ok) {
+                  console.warn('[EH Download] Background fetch falló para', url,
+                    resp ? resp.error : chrome.runtime.lastError);
+                  resolve(null);
+                  return;
+                }
+                // Convertir base64 → Uint8Array
+                const binary = atob(resp.base64);
+                const bytes  = new Uint8Array(binary.length);
+                for (let j = 0; j < binary.length; j++) bytes[j] = binary.charCodeAt(j);
+                resolve({ data: bytes, mimeType: resp.mimeType });
+              }
+            );
+          } catch (e) {
+            console.warn('[EH Download] sendMessage falló:', e);
+            resolve(null);
+          }
+        });
+      }
+
+      async function downloadGalleryAsZip() {
+        if (!downloadOverlay) return;
+        downloadAborted = false;
+        downloadOverlay.style.display = 'flex';
+        if (downloadBar)  downloadBar.style.width = '0%';
+        if (downloadText) downloadText.textContent = `0 / ${state.pageCount} imágenes`;
+
+        const files  = [];
+        const errors = [];
+        const digits = String(state.pageCount).length;
+
+        for (let i = 0; i < state.pageCount; i++) {
+          if (downloadAborted) break;
+
+          // 1. Obtener URL de la imagen
+          let imgUrl = null;
+          try {
+            const cached = state.imageCache.get(i);
+            if (cached && cached.status === 'loaded' && cached.img && cached.img.src) {
+              imgUrl = cached.img.src;
+            } else {
+              const loaded = await loadImage(i);
+              imgUrl = loaded ? loaded.src : null;
+            }
+          } catch (e) {
+            console.warn('[EH Download] No se pudo resolver URL de imagen', i, e);
+          }
+
+          // 2. Descargar bytes a través del background (sin restricciones CORS)
+          if (imgUrl && !downloadAborted) {
+            const result = await fetchImageViaBackground(imgUrl);
+            if (result) {
+              const ext  = (result.mimeType.split('/')[1] || 'jpg').replace('jpeg','jpg');
+              const name = `${String(i + 1).padStart(digits, '0')}.${ext}`;
+              files.push({ name, data: result.data });
+            } else {
+              errors.push(i + 1);
+            }
+          }
+
+          const done = i + 1;
+          if (downloadBar)  downloadBar.style.width = `${Math.round(done / state.pageCount * 100)}%`;
+          if (downloadText) downloadText.textContent = `${done} / ${state.pageCount} imágenes`;
+        }
+
+        downloadOverlay.style.display = 'none';
+
+        if (downloadAborted) return;
+
+        if (files.length === 0) {
+          alert('No se pudo descargar ninguna imagen.\n' +
+                'Asegúrate de que la extensión tiene los permisos necesarios y recarga la página.');
+          return;
+        }
+
+        if (errors.length > 0) {
+          console.warn('[EH Download] Páginas con error:', errors);
+        }
+
+        // Construir y descargar ZIP
+        const zipData = buildZip(files);
+        const blob = new Blob([zipData], { type: 'application/zip' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        const safeName = (pageData.title || 'gallery').replace(/[\\/:*?"<>|]/g, '_').slice(0, 80);
+        a.href = url;
+        a.download = `${safeName}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      }
+
+      if (downloadBtn) {
+        downloadBtn.addEventListener('click', downloadGalleryAsZip);
+      }
+      if (downloadCancel) {
+        downloadCancel.addEventListener('click', () => {
+          downloadAborted = true;
+          if (downloadOverlay) downloadOverlay.style.display = 'none';
+        });
+      }
+    }
+
     // Interruptor de inversión
     function applyReverseState() {
       try {
@@ -4521,6 +4969,9 @@
       knownHeights: new Map(),  // Alturas reales conocidas
       pendingJumpTarget: -1,    // 🎯 Índice de página objetivo pendiente de salto (-1 = ninguno)
       jumpStabilizeTimer: null, // Temporizador de estabilización de salto
+      // FIX #8: Guardar referencias de listeners para poder removerlos
+      _onMouseMove: null,
+      _onMouseUp: null,
     };
 
     // Umbral de desplazamiento virtual: activar desplazamiento virtual si se supera este número de páginas
@@ -4547,6 +4998,9 @@
       knownWidths: new Map(),   // Anchos reales conocidos
       pendingJumpTarget: -1,    // 🎯 Índice de página objetivo pendiente de salto (-1 = ninguno)
       jumpStabilizeTimer: null, // Temporizador de estabilización de salto
+      // FIX #8: Guardar referencias de listeners para poder removerlos
+      _onMouseMove: null,
+      _onMouseUp: null,
     };
 
     // Calcular layout del desplazamiento virtual horizontal
@@ -6046,9 +6500,12 @@
         }
       };
 
+      // FIX #8: Guardar referencias para poder removerlas en exitContinuousMode
+      vh._onMouseMove = onMouseMoveVH;
+      vh._onMouseUp   = onMouseUpVH;
       document.addEventListener('mousemove', onMouseMoveVH);
       document.addEventListener('mouseup', onMouseUpVH);
-      
+
       // Manejo de clics
       vh.scrollContainer.addEventListener('click', (e) => {
         // Si acaba de arrastrar, ignorar este clic
@@ -6168,9 +6625,6 @@
         bottom: 0;
         pointer-events: none;
       `;
-      // Permitir que los elementos hijos reciban eventos
-      vs.itemsContainer.querySelectorAll = vs.itemsContainer.querySelectorAll.bind(vs.itemsContainer);
-      
       vs.contentContainer.appendChild(vs.itemsContainer);
       vs.scrollContainer.appendChild(vs.contentContainer);
       
@@ -6253,9 +6707,12 @@
         }
       };
 
+      // FIX #8: Guardar referencias para poder removerlas en exitContinuousMode
+      vs._onMouseMove = onMouseMoveVS;
+      vs._onMouseUp   = onMouseUpVS;
       document.addEventListener('mousemove', onMouseMoveVS);
       document.addEventListener('mouseup', onMouseUpVS);
-      
+
       // Manejo de clics
       vs.scrollContainer.addEventListener('click', (e) => {
         // Si acaba de arrastrar, ignorar este clic
@@ -6331,6 +6788,15 @@
       
       // Limpiar estado de desplazamiento virtual vertical
       if (virtualScroll.enabled) {
+        // FIX #8: Remover listeners del document para evitar memory leak
+        if (virtualScroll._onMouseMove) {
+          document.removeEventListener('mousemove', virtualScroll._onMouseMove);
+          virtualScroll._onMouseMove = null;
+        }
+        if (virtualScroll._onMouseUp) {
+          document.removeEventListener('mouseup', virtualScroll._onMouseUp);
+          virtualScroll._onMouseUp = null;
+        }
         virtualScroll.enabled = false;
         virtualScroll.scrollContainer = null;
         virtualScroll.contentContainer = null;
@@ -6341,9 +6807,18 @@
         virtualScroll.knownHeights.clear();
         debugLog('[EH Virtual] Modo de desplazamiento virtual ha salido');
       }
-      
+
       // Limpiar estado de desplazamiento virtual horizontal
       if (virtualScrollH.enabled) {
+        // FIX #8: Remover listeners del document para evitar memory leak
+        if (virtualScrollH._onMouseMove) {
+          document.removeEventListener('mousemove', virtualScrollH._onMouseMove);
+          virtualScrollH._onMouseMove = null;
+        }
+        if (virtualScrollH._onMouseUp) {
+          document.removeEventListener('mouseup', virtualScrollH._onMouseUp);
+          virtualScrollH._onMouseUp = null;
+        }
         virtualScrollH.enabled = false;
         virtualScrollH.scrollContainer = null;
         virtualScrollH.contentContainer = null;

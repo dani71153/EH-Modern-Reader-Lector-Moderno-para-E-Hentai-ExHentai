@@ -1,0 +1,241 @@
+====================================================================
+EH Modern Reader — Registro de Mejoras Implementadas
+====================================================================
+Fecha: 2026-04-08
+Archivo modificado: content.js
+====================================================================
+
+
+────────────────────────────────────────────────────────────────────
+FIX #1 — Memory Leak: LRU Cache para imageCache
+────────────────────────────────────────────────────────────────────
+
+PROBLEMA:
+  state.imageCache era un objeto Map() simple sin ningún límite de
+  tamaño. En cada galería visitada, cada imagen que se cargaba
+  quedaba guardada indefinidamente en memoria hasta que el usuario
+  recargara la página. En galerías grandes (200–500+ páginas) esto
+  podía consumir fácilmente 200–500 MB de RAM, causando ralentización
+  del navegador o incluso que la pestaña se cerrara por falta de
+  memoria (OOM).
+
+SOLUCIÓN:
+  Se implementó la clase LRUCache (Least Recently Used Cache) al
+  inicio del script. Reemplaza el Map() en state.imageCache con
+  new LRUCache(100), que mantiene como máximo 100 entradas en memoria.
+  Cuando se agrega una imagen nueva y se supera el límite, se evicta
+  automáticamente la imagen accedida menos recientemente (la "más
+  vieja" en orden de uso).
+
+  La implementación usa un Map() internamente (que mantiene orden de
+  inserción), moviendo cada entrada al final cuando se accede (get/set)
+  para simular el orden LRU. Complejidad O(1) para get, set, has y
+  delete.
+
+  API compatible con Map: get, set, has, delete, forEach, size, clear.
+
+ARCHIVOS MODIFICADOS:
+  - content.js: Clase LRUCache añadida (~línea 32)
+  - content.js: state.imageCache cambiado de new Map() a new LRUCache(100)
+
+
+────────────────────────────────────────────────────────────────────
+FIX #2 — Race Condition: Token check en el fast path de showPage
+────────────────────────────────────────────────────────────────────
+
+PROBLEMA:
+  La función showPage() tenía un "fast path" para cuando la imagen
+  solicitada ya estaba en caché: mostraba la imagen directamente sin
+  esperar ninguna operación asíncrona. El problema era que este fast
+  path NO verificaba el loadToken (mecanismo anti-race-condition).
+
+  Escenario del bug:
+    1. El usuario navega a página 5 → loadToken = 5, showPage(5, 5)
+    2. Antes de que termine, navega a página 10 → loadToken = 6,
+       showPage(10, 6) se pone en cola
+    3. showPage(5, 5) llega al fast path (página 5 estaba en caché)
+    4. Sin verificar el token, setea elements.currentImage.src
+       a la imagen de página 5 ← INCORRECTO
+    5. La imagen correcta (página 10) aparece después, causando un
+       "flash" visible de la imagen equivocada
+
+  La verificación de token SÍ existía en el slow path (carga asíncrona),
+  pero faltaba en el fast path.
+
+SOLUCIÓN:
+  Se añadió la misma verificación de token al inicio del bloque
+  if (targetLoaded) { ... }:
+
+    if (typeof tokenCheck === 'number' && tokenCheck !== loadToken) return;
+
+  Esto hace que si el token ya no coincide (hubo una navegación más
+  reciente), el fast path también descarte el resultado y no actualice
+  la imagen en pantalla.
+
+ARCHIVOS MODIFICADOS:
+  - content.js: función showPage(), bloque if (targetLoaded)
+
+
+────────────────────────────────────────────────────────────────────
+FIX #4 — Sistema de Marcadores / Historial
+────────────────────────────────────────────────────────────────────
+
+PROBLEMA:
+  No había ninguna forma de guardar galerías favoritas ni de ver un
+  historial de lo que se había leído. Cada vez que el usuario quería
+  volver a una galería, tenía que recordar la URL o buscarla de nuevo
+  en el sitio.
+
+SOLUCIÓN:
+  Se implementó BookmarkManager, un objeto con persistencia en
+  localStorage (clave: "eh_bookmarks_v1") que almacena hasta 50
+  marcadores.
+
+  Cada marcador guarda:
+    - id: GID de la galería
+    - title: Título de la galería
+    - url: URL para volver directamente
+    - page / pageCount: Página donde se guardó
+    - savedAt: Timestamp
+
+  Se añadió a la barra superior:
+    ★ Botón de marcadores (icono bookmark en header-right)
+
+  Al hacer clic se abre un panel lateral deslizable (320px) que muestra:
+    - Botón "Guardar galería actual" → guarda la galería con la página
+      actual y actualiza el color del ícono a rosa (#FF6B9D)
+    - Lista de marcadores guardados con título, página y fecha
+    - Botón ✕ en cada entrada para eliminarla
+    - Clic en cualquier entrada navega a esa galería
+
+  El ícono del botón cambia de color cuando la galería actual tiene
+  marcador guardado.
+
+ARCHIVOS MODIFICADOS:
+  - content.js: Clase BookmarkManager añadida antes de initializeReader()
+  - content.js: HTML del panel de marcadores añadido al readerHTML
+  - content.js: Botón ★ añadido al header-right
+  - content.js: Lógica de eventos wired up en initializeReader()
+
+
+────────────────────────────────────────────────────────────────────
+FIX #5 — Descarga de Galería como ZIP
+────────────────────────────────────────────────────────────────────
+
+PROBLEMA:
+  No había forma de descargar las imágenes de una galería para verlas
+  offline. El usuario tenía que guardar imagen por imagen manualmente
+  o usar herramientas externas.
+
+SOLUCIÓN:
+  Se implementó un constructor de archivos ZIP en JavaScript puro
+  (sin dependencias externas), usando el formato ZIP estándar con
+  método STORE (sin compresión, máxima compatibilidad y velocidad).
+
+  El constructor incluye:
+    - CRC-32 calculado en JS con tabla precalculada
+    - Local File Headers con nombre, tamaño y CRC para cada imagen
+    - Central Directory al final del archivo
+    - End of Central Directory Record
+    - Soporte para nombres de archivo con número de página con ceros
+      a la izquierda (ej: 001.jpg, 002.png)
+
+  Flujo de descarga:
+    1. Usuario hace clic en botón ↓ (download) en la barra superior
+    2. Aparece un overlay de progreso con barra y contador de imágenes
+    3. Se cargan las imágenes secuencialmente (usando imageCache primero,
+       luego loadImage() para las no cacheadas)
+    4. Cada imagen se descarga con fetch() y se añade al ZIP en memoria
+    5. Al completar, se genera un Blob ZIP y se descarga automáticamente
+       con el título de la galería como nombre de archivo
+    6. Botón "Cancelar" detiene el proceso en cualquier momento
+
+  Extensiones de archivo extraídas del Content-Type del response
+  (jpg, png, gif, webp), con fallback a .jpg.
+
+ARCHIVOS MODIFICADOS:
+  - content.js: Funciones buildZip(), concat(), downloadGalleryAsZip()
+                añadidas en el bloque FIX #5
+  - content.js: HTML del overlay de progreso añadido al readerHTML
+  - content.js: Botón ↓ añadido al header-right
+
+
+────────────────────────────────────────────────────────────────────
+FIX #8 — Memory Leak: Event Listeners en Virtual Scroll
+────────────────────────────────────────────────────────────────────
+
+PROBLEMA:
+  Los modos de scroll virtual (vertical y horizontal) para galerías
+  de 200+ páginas registraban handlers de mousemove y mouseup en el
+  objeto global document para implementar el arrastre con mouse:
+
+    document.addEventListener('mousemove', onMouseMoveVH);
+    document.addEventListener('mouseup',   onMouseUpVH);
+
+  Estos listeners NUNCA se removían al salir del modo virtual
+  (exitContinuousMode). Cada vez que el usuario entraba y salía del
+  modo de scroll virtual, se acumulaba una nueva copia de estos
+  handlers sin que se eliminara la anterior.
+
+  Consecuencias:
+    - Memory leak: los handlers capturan closures con referencias a
+      los contenedores DOM del modo virtual, que ya no existen
+    - Comportamiento incorrecto: handlers "fantasma" de sesiones
+      anteriores podían interceptar eventos de mouse en otros modos
+    - En casos extremos (reentrada repetida) podía causar lag en
+      el movimiento del mouse por ejecución acumulativa de handlers
+
+  Adicionalmente se encontró una línea de código muerta:
+    vs.itemsContainer.querySelectorAll =
+      vs.itemsContainer.querySelectorAll.bind(vs.itemsContainer);
+  Esta línea re-bindea un método ya nativo al mismo contexto,
+  sin ningún efecto útil.
+
+SOLUCIÓN:
+  1. Se añadieron dos campos a los objetos virtualScroll y
+     virtualScrollH: _onMouseMove y _onMouseUp (null por defecto).
+
+  2. Al registrar los listeners en enterVirtualVerticalMode() y
+     enterVirtualHorizontalMode(), se guardan las referencias:
+       vs._onMouseMove = onMouseMoveVS;
+       vs._onMouseUp   = onMouseUpVS;
+
+  3. En exitContinuousMode(), antes de nullear los objetos, se
+     remueven los listeners si existen:
+       document.removeEventListener('mousemove', vs._onMouseMove);
+       document.removeEventListener('mouseup',   vs._onMouseUp);
+       vs._onMouseMove = null;
+       vs._onMouseUp   = null;
+
+  4. Se eliminó la línea de código muerta del .bind() innecesario.
+
+ARCHIVOS MODIFICADOS:
+  - content.js: Objetos virtualScroll y virtualScrollH: campos
+                _onMouseMove y _onMouseUp añadidos
+  - content.js: enterVirtualHorizontalMode(): guardar refs antes de
+                document.addEventListener
+  - content.js: enterVirtualVerticalMode(): guardar refs antes de
+                document.addEventListener
+  - content.js: exitContinuousMode(): remover listeners en cleanup
+  - content.js: línea muerta .bind() eliminada
+
+
+────────────────────────────────────────────────────────────────────
+MEJORAS PENDIENTES (para implementar en el futuro)
+────────────────────────────────────────────────────────────────────
+
+  #3  - Descarga progresiva offline (Cache API del service worker)
+  #6  - Web Workers para decodificación de imágenes (OffscreenCanvas)
+  #7  - Prefetch adaptativo según velocidad de conexión
+  #9  - Zoom con pellizco (pinch-to-zoom) en dispositivos táctiles
+  #10 - Indicador de progreso de carga real (no simulado)
+  #11 - Keybindings configurables por el usuario
+  #12 - Notificación de nuevas páginas en galerías conocidas
+  #13 - Migración a TypeScript + tests unitarios
+  #14 - Internacionalización (i18n) con chrome.i18n
+  #15 - Modularización de content.js (6.8k líneas en un solo archivo)
+  #16 - Soporte Firefox (Manifest V2)
+  #17 - Modo doble página (2 imágenes lado a lado)
+  #18 - Sincronización de progreso entre dispositivos (chrome.storage.sync)
+
+====================================================================

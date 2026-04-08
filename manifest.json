@@ -13,7 +13,11 @@
     "https://nhentai.net/*",
     "https://nhentai.xxx/*",
     "https://hitomi.la/*",
-    "https://*.gold-usergeneratedcontent.net/*"
+    "https://*.gold-usergeneratedcontent.net/*",
+    "https://*.hath.network/*",
+    "https://*.hitomi.la/*",
+    "https://*.nhentai.net/*",
+    "https://*.nhentai.xxx/*"
   ],
   "icons": {
     "16": "icons/icon16.png",
