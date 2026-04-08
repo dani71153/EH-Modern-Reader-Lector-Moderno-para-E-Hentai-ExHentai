@@ -18,7 +18,14 @@ Este repositorio es una **traducción al español** del proyecto original
 - **Memoria de progreso**: guarda tu posición en cada galería incluso tras reiniciar el navegador.  
 - **Navegación rápida**: barra de miniaturas con salto directo a cualquier página.  
 - **Caché persistente**: URLs de imágenes y miniaturas se guardan para evitar recargas innecesarias.  
-- **Seguridad y control de velocidad**: evita bloqueos por exceso de peticiones.
+- **Seguridad y control de velocidad**: evita bloqueos por exceso de peticiones.  
+
+---
+
+## 🆕 NUEVO
+
+- **Sistema de marcadores**: guarda tus galerías favoritas y accede a ellas fácilmente.  
+- **Descarga en ZIP**: permite descargar galerías completas en un archivo comprimido.  
 
 ---
 
@@ -41,7 +48,9 @@ Más detalles en `docs/INSTALL.md`.
 - **MPV**: se activa automáticamente al entrar en `/mpv/`.  
 - **Galería**: botón lateral en `/g/` para abrir todas las páginas en modo lector.  
 - **nhentai**: botón en `/g/{id}/` o clic en miniaturas para abrir el lector.  
-- **hitomi.la**: botón en páginas de detalle o lector para iniciar la extensión.
+- **hitomi.la**: botón en páginas de detalle o lector para iniciar la extensión.  
+- **Marcadores**: guarda galerías en tu lista personal y accede desde el panel de marcadores.  
+- **Descarga ZIP**: botón en la interfaz para descargar la galería completa en un archivo comprimido.  
 
 ---
 
@@ -52,7 +61,7 @@ Más detalles en `docs/INSTALL.md`.
 - H / S: cambiar modo de lectura.  
 - P: reproducción automática.  
 - F11: pantalla completa.  
-- Esc: cerrar panel o salir.
+- Esc: cerrar panel o salir.  
 
 ---
 
